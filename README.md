@@ -163,6 +163,99 @@ QT_QPA_PLATFORM=offscreen python -m pytest tests -q   # natif : tout s'importe e
 Ce que le navigateur fait vraiment se mesure avec la sonde sur `exemple/` (section précédente) : c'est le test
 d'intégration, il demande Firefox, geckodriver et selenium.
 
+## Servir la page par Google Apps Script, sans serveur à soi
+
+Un tableur Google et son projet Apps Script suffisent comme serveur : `doGet` sert la page, et l'application appelle
+des fonctions du script par `google.script.run` (lire un fichier du Drive, déposer un résultat, le reprendre depuis un
+autre appareil), sous le compte de celui qui déploie (`executeAs: USER_DEPLOYING`, le script écrit dans SON Drive) et
+sans compte pour les utilisateurs (`access: ANYONE_ANONYMOUS` ; le prix : qui connaît le nom d'un utilisateur peut
+rouvrir ce qu'il a déposé). Google affiche un bandeau « Cette application a été créée par un utilisateur de Google Apps
+Script » au-dessus de la page, qui ne s'enlève pas. *Mesuré en septembre 2026 avec une page Pyodide sans Qt (un lecteur
+d'épreuves HTML) ; pour Qt-WASM, les inconnues sont à la fin de cette section.*
+
+**Ce que Google impose, et la réponse.**
+- **Une page d'un seul fichier `.html`** : ni CSS, ni JS, ni zip à côté, pas de chemins relatifs. Un script de
+  construction fabrique le fichier servi à partir des sources (feuille de style et scripts en ligne, par des
+  remplacements dont chacun est asserté unique) ; le dérivé n'est pas versionné, on n'édite que les sources.
+- **Deux iframes sandbox** : `script.google.com/macros/s/<id>/exec` → iframe `*.googleusercontent.com` → iframe
+  `userCodeAppPanel`, où tourne le code. `location.search` y est vide : `doGet` écrit `e.parameter` dans la page
+  (`<script>window.PARAMETRES = <?!= parametres ?>;</script>`, avec `page.parametres = JSON.stringify(e.parameter)`),
+  et `new URLSearchParams(window.PARAMETRES ?? location.search)` sert en local comme chez Google (`URLSearchParams`
+  accepte un objet). Chromium y signale « An iframe which has both allow-scripts and allow-same-origin for its sandbox
+  attribute can escape its sandboxing » : c'est Google, inoffensif.
+- **`importScripts` est refusé** dans un Worker né de cette page ; **`import()` passe** (mesuré le 25/09/2026).
+  `js/travailleur.js` est déjà ce qu'il faut : un module ES lancé depuis un `blob:`, qui charge Pyodide par `import()`.
+- **`localStorage`** est celui de l'origine `googleusercontent`, pas de l'adresse `/exec` : `stockage` y marche (`lire` rend
+  `None` pour une clé absente), la reprise au rechargement aussi.
+- **Ni COOP ni COEP** : Google ne les pose pas, Pyodide-Qt n'en a pas besoin.
+- **Les fichiers de l'application** : un petit fichier (une archive de quelques centaines de Kio, un document) se
+  demande au script, qui rend le base64 d'un fichier du dossier Drive du tableur (filtrer le nom, `/^[^\/\\]+\.(zip|…)$/`,
+  pour que rien d'autre ne sorte du Drive). Pyodide-Qt (36 Mo, dont `pyodide.asm.wasm` 32 Mio) et une archive de
+  plusieurs Mo sont **hors de portée d'Apps Script** : un hôte statique avec CORS (GitHub Pages, un serveur à soi qui
+  envoie `Access-Control-Allow-Origin`) est inévitable, et il doit compresser (section suivante). Dans la page servie
+  par Google, `indexURL`, `archives`, `roues` et le `indexURL` du `Travailleur` sont des **URL absolues** de cet hôte :
+  `preparer` et `Travailleur` les rendent absolues par rapport à `location.href`, qui est celui de l'iframe. Le Pyodide
+  ordinaire du worker peut venir de jsdelivr (`https://cdn.jsdelivr.net/pyodide/v314.0.7/full/` : CORS, mesuré).
+
+**Le script, en quatre fonctions** (`Code.gs`, lié au tableur : `SpreadsheetApp.getActive()` le désigne, et son dossier
+Drive est `DriveApp.getFileById(SpreadsheetApp.getActive().getId()).getParents().next()`) :
+
+```javascript
+function doGet(e) {
+  const page = HtmlService.createTemplateFromFile("page");      // page.html, le seul fichier
+  page.parametres = JSON.stringify(e.parameter);
+  return page.evaluate().setTitle("…").addMetaTag("viewport", "width=device-width, initial-scale=1");
+}
+function fichier(nom) {                                          // un fichier du dossier, en base64
+  if (!/^[^\/\\]+\.(zip|dat)$/.test(nom)) throw new Error("nom refusé");
+  const f = dossier_().getFilesByName(nom);
+  if (!f.hasNext()) throw new Error(nom + " introuvable");
+  return Utilities.base64Encode(f.next().getBlob().getBytes());
+}
+function deposer(r) {                                            // r : {utilisateur, contenu, …} ; ne rend rien
+  const verrou = LockService.getScriptLock(); verrou.waitLock(30000);   // deux dépôts en même temps
+  try { /* écrire ou remplacer <utilisateur>.dat dans un sous-dossier ; une ligne du tableur si l'on veut y lire l'état */ } finally { verrou.releaseLock(); }
+}
+function reprendre(utilisateur) {                                // {contenu, date: f.getLastUpdated().getTime()} ou null
+}
+```
+
+Un modèle : les noms des champs et des arguments sont ceux de l'application, pas de Google.
+
+Côté page, un appel est une promesse :
+`new Promise((ok, echec) => google.script.run.withSuccessHandler(ok).withFailureHandler(echec)[fonction](...args))`.
+`deposer` ne rend rien : le succès est l'absence d'échec. La date que rend `reprendre` arbitre entre la copie locale
+(`stockage.ecrire`, avec une seconde clé `<cle>|date` posée à chaque écriture) et la distante : la plus récente gagne. Depuis Python, le même appel se fait par
+`js.google.script.run…` avec des arguments convertis (`pyodide.ffi.to_js(d, dict_converter=js.Object.fromEntries)`) et
+des gestionnaires gardés par `create_proxy` ; ou l'envoi reste en JavaScript et le pont Python n'expose que l'état à
+déposer, ce qui est plus simple.
+
+**L'outillage** : `clasp` (`npm install -g @google/clasp`, `clasp login`, l'API Apps Script activée sur
+`script.google.com/home/usersettings`) et `rclone` (un remote `drive`, `scope drive`). *Une fois* : `clasp create --type
+sheets --title <nom> --rootDir . --json` **dans un dossier temporaire** (le `Code.gs` vide du projet neuf n'écrase pas le
+vôtre), n'en garder que `scriptId` dans `.clasp.json` ; `appsscript.json` avec sa section `webapp` (`executeAs`,
+`access`) ; `clasp push -f` ; `clasp create-deployment -d "mise en place" --json` rend l'id du déploiement, l'URL est
+`https://script.google.com/macros/s/<id>/exec`, à ouvrir une fois connecté au compte pour autoriser le script (Drive,
+Sheets). Si cette page répond « Un problème est survenu », l'éditeur du projet (`script.google.com/d/<scriptId>/edit`,
+Exécuter > une fonction) pose la même demande, et elle y aboutit (vu le 25/09/2026). *Chaque mise à jour* : construire
+la page, `clasp push -f && clasp deploy -i <id du déploiement> -d "<libellé>"`, `rclone copy` des fichiers du Drive.
+**Sans `-i`, `clasp deploy` crée un NOUVEAU déploiement, donc une nouvelle URL**, et le lien déjà distribué meurt (coûté
+le 25/09/2026). `rclone` avertit que son client_id partagé pour Google Drive est retiré courant 2026 : répondre `y`
+jusque-là, puis créer le sien dans la console Google Cloud.
+
+**Vérifier en ligne** : Selenium + Chromium `--headless=new` (Firefox de la sonde en local, Chromium pour Google : il
+faut le réseau, donc un poste qui l'a), descendre les deux iframes (`switch_to.frame` de la première iframe de chaque
+niveau), attendre `window.etat`, lire `window.journal`. Le critère d'un dépôt réussi est un dépôt **postérieur** à
+l'action testée (poser `window.envoi = {date}` à chaque dépôt et comparer à un `Date.now()` pris après l'action), pas « un
+dépôt » : une page qui dépose dès l'ouverture (ce qu'elle a repris) validait une reprise vide (coûté le 25/09/2026). Puis
+`localStorage.clear()`, rechargement : l'état doit revenir depuis le Drive.
+
+**Inconnues pour Qt-WASM**, jamais mesurées au 26/09/2026, à lever dans l'ordre sur une page minimale (`exemple/`) avant
+de brancher une application : (1) Qt-WASM dessine-t-il dans l'iframe sandbox de Google (canvas, `requestAnimationFrame`,
+clavier) ; (2) `import()` cross-origin depuis cette iframe vers un hôte à soi (mesuré pour jsdelivr seulement) ;
+(3) le quota `localStorage` de l'origine `googleusercontent` ; (4) la mémoire (+360 Mio sur un poste de bureau) sur les
+postes visés ; (5) le temps de chargement à froid derrière le bandeau, avec la compression de l'hôte choisi.
+
 ## Pièges et mesures (Qt-WASM 6.10, Pyodide-Qt 0.29.3)
 
 - **Téléchargement** : `pyodide.asm.wasm` fait 32 Mio, 9,9 en gzip, 8,6 en brotli ; l'hôte doit compresser (une classe
