@@ -1,0 +1,11 @@
+__pycache__/
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+.claude/
+exemple/pyodide-qt/
+exemple/pyodide/
+exemple/app.zip
+exemple/*.png
+.mcp.json

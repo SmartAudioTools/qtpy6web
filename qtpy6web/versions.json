@@ -1,0 +1,5 @@
+{
+  "pyodide_qt": {"version": "0.29.3", "python": "3.13", "qt": "6.10.2", "pyqt6": "6.10.2",
+                 "abi": "cp313-cp313-pyemscripten_2025_0_wasm32", "source": "https://github.com/JarrettSJohnson/pyodide-with-pyqt6/releases/tag/v0.29.3.0"},
+  "pyodide": {"version": "314.0.7", "python": "3.14", "url": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/"}
+}

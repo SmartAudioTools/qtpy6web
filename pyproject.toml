@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qtpy6web"
+dynamic = ["version"]
+description = "Run a qtpy6 (PyQt6) application in the browser with Pyodide-Qt: loader, touch targets, Web Worker as QProcess, probe"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+requires-python = ">=3.10"
+authors = [{name = "smartaudiotools"}]
+keywords = ["qt", "qt6", "pyqt6", "qtpy6", "pyodide", "webassembly", "wasm", "browser"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: User Interfaces",
+]
+dependencies = ["qtpy6"]
+
+[project.urls]
+Homepage = "https://github.com/SmartAudioTools/qtpy6web"
+Changelog = "https://github.com/SmartAudioTools/qtpy6web/blob/master/CHANGELOG.md"
+
+[project.optional-dependencies]
+sonde = ["selenium"]
+test = ["pytest"]
+
+[tool.setuptools]
+packages = ["qtpy6web"]
+
+[tool.setuptools.dynamic]
+version = {attr = "qtpy6web.__version__"}
+
+[tool.setuptools.package-data]
+qtpy6web = ["js/*", "versions.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
