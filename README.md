@@ -140,7 +140,7 @@ sonde : `python -m qtpy6web.sonde --racine . page.html capture.png`, en lisant l
 et un worker `echo.py` qui imprime une invite sans retour à la ligne, attend, répond et rend un dict.
 
 ```bash
-# Pyodide-Qt dans exemple/pyodide-qt/ (pyodide-qt-0.29.3.0.zip de la release, dépaqueté) et un Pyodide ordinaire dans
+# Pyodide-Qt dans exemple/pyodide-qt/ (hebergement/telecharger.sh, section Hébergement) et un Pyodide ordinaire dans
 # exemple/pyodide/ (le tarball npm `pyodide` 314.0.7, ou son dossier full/ du CDN) : ni l'un ni l'autre ne sont versionnés
 python exemple/construire.py                                     # exemple/app.zip (517 Kio : qtpy6, qtpy6web, deux polices)
 python -m qtpy6web.sonde --racine . "exemple/index.html?auto" capture.png
@@ -281,17 +281,37 @@ postes visés ; (5) le temps de chargement à froid derrière le bandeau, avec l
 
 ## Hébergement
 
-Pyodide-Qt (36 Mo, dont le `.wasm` de 32 : 9,9 en gzip) ne se versionne pas avec l'application ; il se sert d'un hôte
-statique à part, avec CORS ouvert, parce que la page l'importe par `import()` de `pyodide.mjs` depuis une autre origine.
-Le dépôt [qtpy6web-pyodide-qt](https://github.com/SmartAudioTools/qtpy6web-pyodide-qt) (GPL v3, comme PyQt6 qu'il
-distribue) le publie sur GitHub Pages depuis la release épinglée, sans binaire versionné :
+Pyodide-Qt (36 Mo, dont le `.wasm` de 32 : 9,9 en gzip) ne se versionne pas : `hebergement/telecharger.sh` rapporte la
+release épinglée dans `qtpy6web/versions.json` (`archive`, `sha256` vérifiée ; un zip déjà téléchargé en argument, sans
+réseau) et la dépaquette dans `exemple/pyodide-qt/`. L'action `.github/workflows/pages.yml` fait la même chose et publie le
+dossier sur GitHub Pages quand le script, `versions.json` ou elle-même changent (ou à la main, *Run workflow*) :
 
-    indexURL: "https://smartaudiotools.github.io/qtpy6web-pyodide-qt/pyodide-qt/"
+    indexURL: "https://smartaudiotools.github.io/qtpy6web/pyodide-qt/"
 
-Le dossier local (`./pyodide-qt/`) reste le bon choix pour développer et pour la sonde : pas de réseau, et les mesures
-de temps ne comptent que le chargement. Son README dit ce qu'il faut mesurer au premier déploiement (l'en-tête CORS, la
-compression du `.wasm`) ; aucun en-tête d'isolation (COOP/COEP) n'est nécessaire, ce build est mono-fil.
+Un hôte statique à part, avec CORS ouvert, est inévitable : la page importe `pyodide.mjs` par `import()` depuis une autre
+origine, et l'application n'a alors plus à déployer le dossier avec sa page. Le dossier local (`./pyodide-qt/`) reste le
+bon choix pour développer et pour la sonde : pas de réseau, et les mesures de temps ne comptent que le chargement.
+
+Mise en service, une fois : réglages du dépôt GitHub → Pages → *Source : GitHub Actions* ; puis, depuis n'importe où :
+
+```bash
+curl -sI https://smartaudiotools.github.io/qtpy6web/pyodide-qt/pyodide.mjs | grep -i "access-control\|content-type"
+curl -sI -H "Accept-Encoding: gzip, br" https://smartaudiotools.github.io/qtpy6web/pyodide-qt/pyodide.asm.wasm | grep -i "content-encoding\|content-length"
+```
+
+La première doit rendre `access-control-allow-origin: *` (Pages l'envoie sur tout). La seconde dit si le `.wasm` part
+compressé : sans `content-encoding`, ce sont 32 Mio à froid au lieu de 10, et il faut un hôte qui compresse le type
+`application/wasm` (à mesurer au premier déploiement, GitHub ne s'y engage pas). Aucun en-tête d'isolation (COOP/COEP)
+n'est nécessaire : ce build est mono-fil. Le cache du navigateur garde le `.wasm` d'une visite à l'autre (`ETag`).
+
+Changer de version : `versions.json` seul (`archive`, `sha256`, `version`, `abi`) ; `preparer()` compare la version
+chargée à celle du fichier et l'écrit au journal si elles diffèrent. L'ABI des roues change avec le Python embarqué :
+toute roue compilée pour la page est à reconstruire.
+
+Le site ainsi publié distribue PyQt6, donc du GPL v3 : `hebergement/LICENSE-Pyodide-Qt.txt` est servi à côté, et
+`hebergement/index.html` renvoie aux sources de la release (la recette de construction de Qt, PyQt6 et Pyodide). Le
+dépôt lui-même ne contient aucun binaire et reste MIT.
 
 ## Licence
 
-MIT (`LICENSE.txt`). Pyodide-Qt, que la page charge, est GPL v3 ; Pyodide est MPL 2.0 ; Qt est LGPL v3.
+MIT (`LICENSE.txt`). Pyodide-Qt, que la page charge et que l'hébergement distribue, est GPL v3 (`hebergement/LICENSE-Pyodide-Qt.txt`) ; Pyodide est MPL 2.0 ; Qt est LGPL v3.
