@@ -57,7 +57,14 @@ class Disposition(QLayout):
 class Rangee(Disposition):
     """Une rangée de widgets qui passe à la ligne quand la place manque. Un ``addStretch`` y garde son sens : ce qui
     le suit est poussé à droite de sa ligne ; un ``addSpacing`` est un blanc fixe, comme dans un ``QHBoxLayout``. Les
-    widgets de politique horizontale ``Expanding`` se partagent la largeur de leur ligne à parts égales."""
+    widgets de politique horizontale ``Expanding`` se partagent la largeur de leur ligne à parts égales, sauf un plus
+    large que sa part, qui garde sa largeur. ``uniforme`` les coupe en lignes comme s'ils avaient tous la largeur du plus
+    large, pour que les parts soient vraiment égales, mais seulement si cela ne coûte pas de ligne de plus : quand la
+    place manque, chacun reprend la largeur de son texte."""
+
+    def __init__(self, espacement, uniforme=False):
+        super().__init__(espacement)
+        self.uniforme = uniforme
 
     def addStretch(self):
         self.addItem(QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
@@ -67,6 +74,16 @@ class Rangee(Disposition):
 
     def _lignes(self, largeur):
         """Les lignes : des listes d'items visibles, coupées là où le suivant ne tient plus ; ``None`` marque le ressort."""
+        lignes = self._couper(largeur, 0)
+        extensibles = [i.sizeHint().width() for i in self.items if self._extensible(i)]
+        if self.uniforme and extensibles:
+            egales = self._couper(largeur, max(extensibles))
+            if len(egales) == len(lignes):
+                return egales
+        return lignes
+
+    def _couper(self, largeur, large):
+        """Les lignes, chaque item extensible compté au moins ``large``."""
         lignes, x = [[]], 0
         for item in self.items:
             if item.isEmpty():
@@ -74,13 +91,17 @@ class Rangee(Disposition):
             if item.spacerItem() is not None and item.expandingDirections() & Qt.Orientation.Horizontal:
                 lignes[-1].append(None)
                 continue
-            l = item.sizeHint().width()
+            l = max(item.sizeHint().width(), large if self._extensible(item) else 0)
             if x and x + self.spacing() + l > largeur:
                 lignes.append([])
                 x = 0
             lignes[-1].append(item)
             x += (self.spacing() if x else 0) + l
         return lignes
+
+    @staticmethod
+    def _extensible(item):
+        return not item.isEmpty() and item.spacerItem() is None and bool(item.expandingDirections() & Qt.Orientation.Horizontal)
 
     def _disposer(self, rect, poser):
         y = rect.y()
