@@ -3,7 +3,7 @@
 // avant le suivant. Lancé depuis une URL blob: : toutes les URL reçues sont absolues.
 //   reçus : {init: {indexURL, archives: [{url, dossier}], module, cwd}}, {appel: {id, fonction, args}}
 //   émis :  {pret}, {id, sortie} (ce que l'appel imprime, au fil de l'eau), {id, retour}, {id, erreur}, {erreur} (init)
-let py, module, appeler, courant = null, file = Promise.resolve();
+let py, module, appeler, courant = 0, file = Promise.resolve();  // courant : le numéro de l'appel en cours, 0 hors de tout appel (l'import du module)
 const decodeur = new TextDecoder();
 
 function telecharger(url) {
@@ -37,7 +37,7 @@ async function traiter({ id, fonction, args }) {
   } catch (e) {
     postMessage({ id, erreur: String(e) });
   } finally {
-    courant = null;
+    courant = 0;
   }
 }
 
