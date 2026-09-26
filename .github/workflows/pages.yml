@@ -1,6 +1,7 @@
 # Publie Pyodide-Qt sur GitHub Pages (https://smartaudiotools.github.io/qtpy6web/pyodide-qt/) : le binaire n'est jamais dans
 # le dépôt, hebergement/telecharger.sh le rapporte de la release épinglée dans qtpy6web/versions.json (empreinte vérifiée).
-# Ne tourne que si l'un de ces fichiers change, ou à la main. Réglages du dépôt : Pages → Source : GitHub Actions.
+# Ne tourne que si l'un de ces fichiers change, ou à la main. Active Pages elle-même au premier passage (enablement) :
+# sans cela, configure-pages échoue en « Get Pages site failed » tant que personne n'a cliqué dans les réglages du dépôt.
 name: Pages
 on:
   push:
@@ -22,6 +23,8 @@ jobs:
       - run: hebergement/telecharger.sh
       - run: mkdir site && cp -r exemple/pyodide-qt hebergement/index.html hebergement/LICENSE-Pyodide-Qt.txt site/
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

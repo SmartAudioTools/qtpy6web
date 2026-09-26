@@ -292,7 +292,8 @@ Un hôte statique à part, avec CORS ouvert, est inévitable : la page importe `
 origine, et l'application n'a alors plus à déployer le dossier avec sa page. Le dossier local (`./pyodide-qt/`) reste le
 bon choix pour développer et pour la sonde : pas de réseau, et les mesures de temps ne comptent que le chargement.
 
-Mise en service, une fois : réglages du dépôt GitHub → Pages → *Source : GitHub Actions* ; puis, depuis n'importe où :
+Mise en service : rien à cliquer, l'action active Pages elle-même au premier passage (`enablement: true`). Puis, depuis
+n'importe où :
 
 ```bash
 curl -sI https://smartaudiotools.github.io/qtpy6web/pyodide-qt/pyodide.mjs | grep -i "access-control\|content-type"
