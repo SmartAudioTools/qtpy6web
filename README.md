@@ -303,7 +303,9 @@ curl -sI -H "Accept-Encoding: gzip, br" https://smartaudiotools.github.io/qtpy6w
 
 La première doit rendre `access-control-allow-origin: *` (Pages l'envoie sur tout). La seconde dit si le `.wasm` part
 compressé : sans `content-encoding`, ce sont 32 Mio à froid au lieu de 10, et il faut un hôte qui compresse le type
-`application/wasm` (à mesurer au premier déploiement, GitHub ne s'y engage pas). Aucun en-tête d'isolation (COOP/COEP)
+`application/wasm`. Mesuré au premier déploiement (26/09/2026) : `access-control-allow-origin: *` sur tout, `content-type:
+application/wasm`, et le `.wasm` part en `content-encoding: gzip`, 10 516 295 octets pour 33 652 901 nus ; `pyodide.mjs`
+aussi en gzip, `python_stdlib.zip` tel quel (2,4 Mo, déjà compressé). Aucun en-tête d'isolation (COOP/COEP)
 n'est nécessaire : ce build est mono-fil. Le cache du navigateur garde le `.wasm` d'une visite à l'autre (`ETag`).
 
 Changer de version : `versions.json` seul (`archive`, `sha256`, `version`, `abi`) ; `preparer()` compare la version
