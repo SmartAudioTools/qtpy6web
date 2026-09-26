@@ -50,6 +50,14 @@ def test_rangee_se_replie(app):
         rangee.add_widget(QtWidgets.QPushButton("Bouton %d" % i))
     assert rangee.heightForWidth(200) > rangee.heightForWidth(1000)  # étroite : plusieurs lignes (camelCase : le
     # snake_case de PySide6 appelle ici la méthode de base, qui rend -1)
+    boutons = zone.find_children(QtWidgets.QPushButton)
+    fixe = boutons[0].sizeHint().width()
+    for b in boutons[1:]:
+        b.set_size_policy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
+    rangee.setGeometry(QtCore.QRect(0, 0, 1000, 100))
+    largeurs = [b.geometry().width() for b in boutons]
+    assert largeurs[0] == fixe and len(set(largeurs[1:-1])) == 1, largeurs  # parts égales, le reste au dernier
+    assert boutons[-1].geometry().right() == 999, "les extensibles n'occupent pas toute la ligne"
 
 
 def test_versions_json():

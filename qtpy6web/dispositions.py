@@ -56,7 +56,8 @@ class Disposition(QLayout):
 
 class Rangee(Disposition):
     """Une rangée de widgets qui passe à la ligne quand la place manque. Un ``addStretch`` y garde son sens : ce qui
-    le suit est poussé à droite de sa ligne ; un ``addSpacing`` est un blanc fixe, comme dans un ``QHBoxLayout``."""
+    le suit est poussé à droite de sa ligne ; un ``addSpacing`` est un blanc fixe, comme dans un ``QHBoxLayout``. Les
+    widgets de politique horizontale ``Expanding`` se partagent la largeur de leur ligne à parts égales."""
 
     def addStretch(self):
         self.addItem(QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
@@ -89,6 +90,13 @@ class Rangee(Disposition):
                 continue
             hauteur_ligne = max(i.sizeHint().height() for i in items)
             largeurs = [i.sizeHint().width() for i in items]
+            extensibles = sorted((n for n, i in enumerate(items) if i.expandingDirections() & Qt.Orientation.Horizontal),
+                                 key=lambda n: -largeurs[n])
+            libre = (rect.width() - self.spacing() * (len(items) - 1)
+                     - sum(l for n, l in enumerate(largeurs) if n not in extensibles))
+            for k, n in enumerate(extensibles):  # les plus larges d'abord : qui dépasse la part égale garde sa largeur
+                largeurs[n] = max(largeurs[n], libre // (len(extensibles) - k))
+                libre -= largeurs[n]
             x, apres = rect.x(), None
             if None in ligne:  # ce qui suit le ressort, calé à droite s'il y a la place
                 apres = ligne.index(None)
