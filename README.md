@@ -122,7 +122,9 @@ Rien à envelopper : c'est du Qt ordinaire, écrit pour un seul fil et sans bouc
    survivre passe par `stockage.ecrire`, ce qui doit sortir par `stockage.telecharger`.
 5. **Les polices** : livrer celles de l'interface et la fixe dans l'archive (`assembler(..., polices=...)`), les déclarer
    à `application(polices=..., defaut=...)`, `police_fixe()` pour les éditeurs. Sans cela Qt-WASM dessine avec sa police
-   de secours, différente du natif.
+   de secours, différente du natif ; et un symbole qu'aucune police livrée n'a (⭘, ◉…) sort en carré vide, là où le natif
+   le prend dans une police système : livrer un sous-ensemble (`fontTools.subset`, les blocs U+2190-U+2BFF de Noto Sans
+   Symbols 2 font 134 Kio).
 6. **Le doigt** : `tactile.activer()` si `tactile.detecte()`, `defiler_au_doigt` sur les zones défilantes, `Rangee` là où
    une barre de boutons imposerait sa largeur à la fenêtre.
 7. **La fenêtre principale en `show_full_screen()`** dans le navigateur : tout le conteneur, sans barre de titre (une
