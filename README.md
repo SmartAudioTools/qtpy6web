@@ -186,6 +186,19 @@ d'intégration, il demande Firefox, geckodriver et selenium.
   avec `--zoom`) ; Chromium n'ouvre pas sans socket Unix, ce qu'un bac à sable peut interdire. Selenium Manager tente de
   télécharger geckodriver avant de prendre celui du système : sans réseau, ses messages sont du bruit, pas une panne.
 
+## Hébergement
+
+Pyodide-Qt (36 Mo, dont le `.wasm` de 32 : 9,9 en gzip) ne se versionne pas avec l'application ; il se sert d'un hôte
+statique à part, avec CORS ouvert, parce que la page l'importe par `import()` de `pyodide.mjs` depuis une autre origine.
+Le dépôt [qtpy6web-pyodide-qt](https://github.com/SmartAudioTools/qtpy6web-pyodide-qt) (GPL v3, comme PyQt6 qu'il
+distribue) le publie sur GitHub Pages depuis la release épinglée, sans binaire versionné :
+
+    indexURL: "https://smartaudiotools.github.io/qtpy6web-pyodide-qt/pyodide-qt/"
+
+Le dossier local (`./pyodide-qt/`) reste le bon choix pour développer et pour la sonde : pas de réseau, et les mesures
+de temps ne comptent que le chargement. Son README dit ce qu'il faut mesurer au premier déploiement (l'en-tête CORS, la
+compression du `.wasm`) ; aucun en-tête d'isolation (COOP/COEP) n'est nécessaire, ce build est mono-fil.
+
 ## Licence
 
 MIT (`LICENSE.txt`). Pyodide-Qt, que la page charge, est GPL v3 ; Pyodide est MPL 2.0 ; Qt est LGPL v3.
