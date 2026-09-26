@@ -4,10 +4,11 @@ Chaque fonction importe ``js`` à l'appel : le module s'importe en natif, où ri
 
 
 def lire(cle):
-    """Le texte rangé sous ``cle``, ou None."""
+    """Le texte rangé sous ``cle``, ou None (le ``null`` de JavaScript arrive en ``jsnull`` sous Pyodide, pas en None)."""
     import js  # noqa: PLC0415
 
-    return js.localStorage.getItem(cle)
+    texte = js.localStorage.getItem(cle)
+    return texte if isinstance(texte, str) else None
 
 
 def ecrire(cle, texte):
